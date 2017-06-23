@@ -3,6 +3,9 @@
 #include <memory>
 #include <utility>
 #include <boost/asio.hpp>
+#include <fstream>
+
+#define FILESIZE 1024
 
 using boost::asio::ip::tcp;
 using std::cout;
@@ -15,7 +18,6 @@ class session
         session(tcp::socket socket)
             : socket_(std::move(socket))
         {
-            cout << "session sizeof(socket_): " << sizeof(socket_) << " hex:" << &socket_ <<endl;
         }
 
         void start()
@@ -40,14 +42,35 @@ class session
         void do_write(std::size_t length)
         {
             auto self(shared_from_this());
+            
+            cout << data_ << endl;
+
+            
+            std::ifstream myfile;
+            myfile.open ("example.txt");
+            //myfile << "Writing this to a file.\n";
+            myfile.seekg(0, myfile.end);
+            length = myfile.tellg();
+            myfile.seekg(0, myfile.beg);
+            cout << "Размер" <<length << endl;
+            
+            myfile.read(data_, length);
+            myfile.close();
+            cout << "read from file: " << data_ << " length: "<< length << endl;
+
+
             boost::asio::async_write(socket_, boost::asio::buffer(data_, length),
-                    [this, self](boost::system::error_code ec, std::size_t /*length*/)
+                    [this, self](boost::system::error_code ec, std::size_t length_)
                     {
+                        cout << "read from file: length: "<< length_ << endl;
                         if (!ec)
                         {
                             do_read();
                         }
                     });
+           // cout << "-start" << endl;
+            //socket_.write_some(boost::asio::buffer(datafile, length));
+           // cout << "-end" << endl;
         }
 
         tcp::socket socket_;
@@ -68,6 +91,7 @@ class server
     private:
         void do_accept()
         {
+            cout << "acceptor" << endl;
             acceptor_.async_accept(socket_,
                     [this](boost::system::error_code ec)
                     {
@@ -78,6 +102,7 @@ class server
 
                     do_accept();
                     });
+            cout << "end" << endl;
         }
 
         tcp::acceptor acceptor_;
@@ -97,7 +122,7 @@ int main(int argc, char* argv[])
         boost::asio::io_service io_service;
 
         server s(io_service, std::atoi(argv[1]));
-
+        sleep(1);
         io_service.run();
     }
     catch (std::exception& e)
