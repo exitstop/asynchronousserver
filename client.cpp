@@ -26,12 +26,74 @@ public:
        delete s;
        delete resolver; 
     }
+    void write(char* buffer, size_t buffer_length);
+    void read (char* buffer, size_t buffer_length);
+    void sh();
+    void file_recv(char* filename);
 private:
     boost::asio::io_service io_service;
     tcp::socket *s;
     tcp::resolver *resolver;
 
+    char request[51];
+    char reply[max_length];
+    std::string command;
 };
+
+void Client::write(char* buffer, size_t buffer_length){
+    boost::asio::write(*s, boost::asio::buffer(buffer, buffer_length));
+};
+
+void Client::read(char* buffer, size_t buffer_length){
+    s->read_some( boost::asio::buffer(buffer, buffer_length));
+};
+
+void Client::sh(){
+    std::cout << "user@server: ";        
+    std::getline(std::cin,command);        
+    if(command.size()>50){       
+        std::strcpy(request, command.substr(command.size() - 50).c_str());  
+    }
+    std::strcpy(request, command.c_str()); 
+    size_t request_length = std::strlen(request);
+    boost::asio::write(*s, boost::asio::buffer(request, request_length));
+
+    if(strcmp(request,"send")==0){
+       file_recv("clientsave.txt");
+    }else if(strcmp(request,"regme")){
+       
+    }else{
+       cout << "default" << endl;
+    }           
+        
+};
+
+void Client::file_recv(char* filename){
+    int hsize=0;
+    s->read_some( boost::asio::buffer(&hsize, sizeof(hsize)));    
+    int countread = hsize%1024;
+    int sread=s->read_some( boost::asio::buffer(reply));
+
+    std::ofstream myfile;
+    myfile.open (filename);    
+
+    char* S = new char[256];
+    char K[]= {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+
+    RC4P<sizeof(K)> r(S, K);
+    r.calculate(reply, countread);
+
+    myfile.write(reply, sread);
+
+    for(int i=0; i<hsize/1024; i++){
+        size_t reply_length2 = s->read_some( boost::asio::buffer(reply, 1024));
+        r.calculate(reply, reply_length2);
+        myfile.write(reply,reply_length2);
+    }
+
+    myfile.close();
+    std::cout << "Получен файл. Размер: " << hsize << std::endl;
+}
 
 int main(int argc, char* argv[])
 {
@@ -43,65 +105,10 @@ int main(int argc, char* argv[])
             return 1;
         }
 
-        // Client client(argv);
-        // exit(0);
+        Client cli(argv);
+        cli.sh();
+        exit(0);
 
-        boost::asio::io_service io_service;
-
-        tcp::socket s(io_service);
-        tcp::resolver resolver(io_service);
-        boost::asio::connect(s, resolver.resolve({argv[1], argv[2]}));
-
-        std::cout << "Enter message: ";
-        //char request[max_length];
-        std::string command;
-        //cout << command << endl;
-        std::getline(std::cin,command);
-        char *request = new char[51];
-        if(command.size()>50){
-            std::strcpy(request, command.substr(command.size() - 50).c_str());  
-            cout << "обрезали" <<endl;
-        }
-        std::strcpy(request, command.c_str()); 
-        // const char *request = command.substr(command.size() - 50).c_str();
-        // char *request = new char[command.size()+1];
-        // std::strcpy(request, command.substr(command.size() - 50).c_str());
-        //std::cin >> std::setw(50) >> request;
-        size_t request_length = std::strlen(request);
-        // request[request_length]=0;
-        boost::asio::write(s, boost::asio::buffer(request, request_length));
-
-        int hsize=0;
-        int* headr=&hsize; 
-        s.read_some( boost::asio::buffer(headr, sizeof(hsize)));
-        std::cout << *headr << std::endl;
-
-        char reply[max_length];
-        std::ofstream myfile;
-        myfile.open ("clientsave.txt");
-
-        int countread = hsize%1024;
-        int sread=s.read_some( boost::asio::buffer(reply));
-
-        char* S = new char[256];
-        char K[]= {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-        RC4P<sizeof(K)> r(S, K);
-        r.calculate(reply, countread);
-
-        myfile.write(reply, sread);
-
-        for(int i=0; i<hsize/1024; i++){
-            size_t reply_length2 = s.read_some( boost::asio::buffer(reply, 1024));
-            r.calculate(reply, reply_length2);
-            myfile.write(reply,reply_length2);
-        }
-
-        std::cout << reply << std::endl;
-        std::cout << "Reply is: ";
-
-        // delete[] request;
-
-        myfile.close();
     }
     catch (std::exception& e)
     {

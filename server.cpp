@@ -44,6 +44,8 @@ class session
                             if(strcmp(message,"send")==0){
                                 cout << "send" << endl;
                                 do_write(length);
+                            }else if(strcmp(message,"regme")){
+                                
                             }else{
                                 cout << "default" << endl;
                             }
