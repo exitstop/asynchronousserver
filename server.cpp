@@ -31,12 +31,25 @@ class session
         void do_read()
         {
             auto self(shared_from_this());
-            socket_.async_read_some(boost::asio::buffer(data_, max_length),
+
+            
+            socket_.async_read_some(boost::asio::buffer(message, 50),
                     [this, self](boost::system::error_code ec, std::size_t length)
                     {
+                        
                         if (!ec)
                         {
-                            do_write(length);
+                            message[length]=0;
+                            // cout << "strcmp: " << strcmp(message,"send") << " size " << strlen(message)<< endl;
+                            if(strcmp(message,"send")==0){
+                                cout << "send" << endl;
+                                do_write(length);
+                            }else{
+                                cout << "default" << endl;
+                            }
+                            cout << message << endl;
+                        
+                            
                         }
                     });
         }
@@ -91,6 +104,8 @@ class session
         tcp::socket socket_;
         enum { max_length = 4024 };
         char data_[max_length];
+        char message[51];
+        
 };
 
 class server
