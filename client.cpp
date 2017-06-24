@@ -1,3 +1,4 @@
+#include "rc4.h"
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -5,7 +6,7 @@
 #include <fstream>
 
 using boost::asio::ip::tcp;
-
+using namespace marusa;
 enum { max_length = 1024 };
 
 int main(int argc, char* argv[])
@@ -29,18 +30,34 @@ int main(int argc, char* argv[])
         size_t request_length = std::strlen(request);
         boost::asio::write(s, boost::asio::buffer(request, request_length));
 
+        int hsize=0;
+        int* headr=&hsize; 
+        s.read_some( boost::asio::buffer(headr, sizeof(hsize)));
+        std::cout << *headr << std::endl;
+
         char reply[max_length];
-        size_t reply_length2 = s.read_some(
-                boost::asio::buffer(reply));
+        std::ofstream myfile;
+        myfile.open ("clientsave.txt");
+        int sread=s.read_some( boost::asio::buffer(reply));
+
+        char* S = new char[256];
+        char K[]= {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+        int countread = hsize%1024;
+        RC4P<sizeof(K)> r(S, K);
+        r.calculate(reply, countread);
+
+        myfile.write(reply, sread);
+
+        for(int i=0; i<hsize/1024; i++){
+            size_t reply_length2 = s.read_some( boost::asio::buffer(reply));
+            r.calculate(reply, reply_length2);
+            myfile.write(reply,reply_length2);
+        }
+
         std::cout << reply << std::endl;
         std::cout << "Reply is: ";
 
-        std::cout.write(reply, reply_length2);
-        std::cout << "\n";
-        std::ofstream myfile;
 
-        myfile.open ("clientsave.txt");
-        myfile.write(reply,reply_length2);
         myfile.close();
     }
     catch (std::exception& e)

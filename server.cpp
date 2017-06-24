@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include "rc4.h" 
 #include <iostream>
 #include <memory>
 #include <utility>
@@ -8,6 +9,7 @@
 #define FILESIZE 1024
 
 using boost::asio::ip::tcp;
+using namespace marusa;
 using std::cout;
 using std::endl;
 
@@ -43,38 +45,51 @@ class session
         {
             auto self(shared_from_this());
             
-            cout << data_ << endl;
+//            cout << data_ << endl;
 
             
             std::ifstream myfile;
             myfile.open ("example.txt");
-            //myfile << "Writing this to a file.\n";
             myfile.seekg(0, myfile.end);
-            length = myfile.tellg();
+            int lengthfile = myfile.tellg();
             myfile.seekg(0, myfile.beg);
-            cout << "Размер" <<length << endl;
+
             
-            myfile.read(data_, length);
+            int countread = lengthfile%1024;
+            myfile.read(data_, countread);
+
+            char* S = new char[256];
+            char K[]= {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+            RC4P<sizeof(K)> r(S, K);
+            r.calculate(data_, countread );
+
+            int* cc=&lengthfile;
+            socket_.write_some(boost::asio::buffer(cc,sizeof(lengthfile)));
+            socket_.write_some(boost::asio::buffer(data_, countread));
+            
+            for(int i=0; i<lengthfile/1024; i++){           
+                myfile.read(data_, 1024);
+                r.calculate(data_, 1024);
+                socket_.write_some(boost::asio::buffer(data_, 1024));
+            }
+            cout << myfile.gcount() << endl;
             myfile.close();
-            cout << "read from file: " << data_ << " length: "<< length << endl;
-
-
-            boost::asio::async_write(socket_, boost::asio::buffer(data_, length),
-                    [this, self](boost::system::error_code ec, std::size_t length_)
-                    {
-                        cout << "read from file: length: "<< length_ << endl;
-                        if (!ec)
-                        {
-                            do_read();
-                        }
-                    });
+            socket_.write_some(boost::asio::buffer("e", sizeof(lengthfile)));
+            //boost::asio::async_write(socket_, boost::asio::buffer("end date", length),
+            //        [this, self](boost::system::error_code ec, std::size_t length_)
+            //        {
+            //            if (!ec)
+            //            {
+            //                do_read();
+            //            }
+            //        });
            // cout << "-start" << endl;
             //socket_.write_some(boost::asio::buffer(datafile, length));
            // cout << "-end" << endl;
         }
 
         tcp::socket socket_;
-        enum { max_length = 1024 };
+        enum { max_length = 4024 };
         char data_[max_length];
 };
 
@@ -91,7 +106,6 @@ class server
     private:
         void do_accept()
         {
-            cout << "acceptor" << endl;
             acceptor_.async_accept(socket_,
                     [this](boost::system::error_code ec)
                     {
@@ -102,7 +116,6 @@ class server
 
                     do_accept();
                     });
-            cout << "end" << endl;
         }
 
         tcp::acceptor acceptor_;
