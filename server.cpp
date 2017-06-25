@@ -1,5 +1,5 @@
 #include <cstdlib>
-#include "rc4.h" 
+#include "rc4plus.h" 
 #include <iostream>
 #include <memory>
 #include <utility>
@@ -41,7 +41,7 @@ class session
                         {
                             message[length]=0;
                             // cout << "strcmp: " << strcmp(message,"send") << " size " << strlen(message)<< endl;
-                            if(strcmp(message,"send")==0){
+                            if(strcmp(message,"poll")==0){
                                 cout << "send" << endl;
                                 do_write(length);
                             }else if(strcmp(message,"regme")){

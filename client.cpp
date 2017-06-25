@@ -1,4 +1,4 @@
-#include "rc4.h"
+#include "rc4plus.h"
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -6,46 +6,58 @@
 #include <fstream>
 #include <iomanip> 
 
+
 using boost::asio::ip::tcp;
 using std::cout;
+using std::cin;
 using std::endl;
 using std::string;
 using namespace marusa;
+
 enum { max_length = 1024 };
+
+char K[] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
 
 class Client{
 public:
-    Client(char* argv[]){
+    Client(char* argv[]):
+                    socket(new tcp::socket(io_service)),
+                    resolver(new tcp::resolver(io_service)){
+
         std::cout << "argv[]: " << argv[1]<< " " <<argv[2] << std::endl;
-        s=new tcp::socket(io_service);
-        // tcp::socket s(io_service);
-        resolver = new tcp::resolver(io_service);
-        boost::asio::connect(*s, resolver->resolve({argv[1], argv[2]}));        
+        boost::asio::connect(*socket, resolver->resolve({argv[1], argv[2]}));  
+        
+        criptRC4P=new RC4P<sizeof(K)>(S, K);      
     }
     ~Client(){
-       delete s;
-       delete resolver; 
+       delete socket;
+       delete resolver;
+       delete criptRC4P; 
     }
     void write(char* buffer, size_t buffer_length);
     void read (char* buffer, size_t buffer_length);
     void sh();
-    void file_recv(char* filename);
+    void file_poll(char* filename);
+    void file_push(char* filename);
 private:
     boost::asio::io_service io_service;
-    tcp::socket *s;
+    tcp::socket *socket;
     tcp::resolver *resolver;
 
     char request[51];
     char reply[max_length];
     std::string command;
+    char S[256];
+    ;
+    RC4P<sizeof(K)> *criptRC4P;
 };
 
 void Client::write(char* buffer, size_t buffer_length){
-    boost::asio::write(*s, boost::asio::buffer(buffer, buffer_length));
+    boost::asio::write(*socket, boost::asio::buffer(buffer, buffer_length));
 };
 
 void Client::read(char* buffer, size_t buffer_length){
-    s->read_some( boost::asio::buffer(buffer, buffer_length));
+    socket->read_some( boost::asio::buffer(buffer, buffer_length));
 };
 
 void Client::sh(){
@@ -56,38 +68,38 @@ void Client::sh(){
     }
     std::strcpy(request, command.c_str()); 
     size_t request_length = std::strlen(request);
-    boost::asio::write(*s, boost::asio::buffer(request, request_length));
+    boost::asio::write(*socket, boost::asio::buffer(request, request_length));
 
-    if(strcmp(request,"send")==0){
-       file_recv("clientsave.txt");
-    }else if(strcmp(request,"regme")){
-       
+    if(strcmp(request,"poll")==0){
+       file_poll("clientsave.txt");
+    }else if(strcmp(request,"push")==0){
+          
+    
+    }else if(strcmp(request,"regme")==0){
+          
     }else{
        cout << "default" << endl;
     }           
         
 };
 
-void Client::file_recv(char* filename){
+void Client::file_poll(char* filename){
     int hsize=0;
-    s->read_some( boost::asio::buffer(&hsize, sizeof(hsize)));    
+    socket->read_some( boost::asio::buffer(&hsize, sizeof(hsize)));    
     int countread = hsize%1024;
-    int sread=s->read_some( boost::asio::buffer(reply));
+    int sread=socket->read_some( boost::asio::buffer(reply));
 
     std::ofstream myfile;
     myfile.open (filename);    
 
-    char* S = new char[256];
-    char K[]= {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
 
-    RC4P<sizeof(K)> r(S, K);
-    r.calculate(reply, countread);
+    criptRC4P->calculate(reply, countread);
 
     myfile.write(reply, sread);
 
     for(int i=0; i<hsize/1024; i++){
-        size_t reply_length2 = s->read_some( boost::asio::buffer(reply, 1024));
-        r.calculate(reply, reply_length2);
+        size_t reply_length2 = socket->read_some( boost::asio::buffer(reply, 1024));
+        criptRC4P->calculate(reply, reply_length2);
         myfile.write(reply,reply_length2);
     }
 
@@ -97,6 +109,10 @@ void Client::file_recv(char* filename){
 
 int main(int argc, char* argv[])
 {
+    
+    string com;
+    cin >> com;
+
     try
     {
         if (argc != 3)

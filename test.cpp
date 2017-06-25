@@ -1,29 +1,27 @@
+#include <boost/lambda/lambda.hpp>
+#include <iterator>
+#include <algorithm>
+#include <boost/regex.hpp>
 #include <iostream>
-using namespace std;
+#include <string>
 
-template<class T = int>
-struct myStruct{
-    T i;
-};
+int main()
+{
+    // using namespace boost::lambda;
+    // typedef std::istream_iterator<int> in;
 
-template<class Ttempl = int, template<class> class Tclass = myStruct>
-class myClass{
-public:
-    myClass(Tclass<Ttempl> &_data):data_ptr(&_data){
-        cout << "create --test: " << sizeof(data_ptr->i) << endl;
-        cout << "create --test: " << data_ptr->i << endl;
-        data_ptr->i=66;
-    };
+    // std::for_each(
+    //     in(std::cin), in(), std::cout << (_1 * 3) << " " );
 
-private:
-    //myStruct data;
-    Tclass<Ttempl>* data_ptr;
-};
 
-int main(){
+    std::string line;
+    boost::regex pat( "^Subject: (Re: |Aw: )*(.*)" );
 
-    myStruct<int> myS;
-    myS.i=554;
-    myClass<int> myC(myS);
-    cout << "myS.i=" << myS.i << endl;
+    while (std::cin)
+    {
+        std::getline(std::cin, line);
+        boost::smatch matches;
+        if (boost::regex_match(line, matches, pat))
+            std::cout << matches[2] << std::endl;
+    }
 }
