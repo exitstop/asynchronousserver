@@ -6,12 +6,38 @@
 #include <boost/asio.hpp>
 #include <fstream>
 
+
+#include "sql.h"
+
 #define FILESIZE 1024
 
 using boost::asio::ip::tcp;
 using namespace marusa;
 using std::cout;
 using std::endl;
+using std::string;
+using std::vector;
+
+
+
+char* S = new char[256];
+char K[]= {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+RC4P<sizeof(K)> r(S, K);
+
+
+myprosql::SQL sql;
+
+// static int callback(void *NotUsed, int argc, char **argv, char **azColName){
+//   int i;
+//   for(i=0; i<argc; i++){
+//     cout << azColName[i] << " = " << (argv[i] ? argv[i] : "NULL" ) << endl;
+//   }
+//   printf("\n");
+//   return 0;
+// }
+
+
+
 
 class session
 : public std::enable_shared_from_this<session>
@@ -37,15 +63,18 @@ class session
                     [this, self](boost::system::error_code ec, std::size_t length)
                     {
                         
+                        
+                        r.calculate(message, length);   //Расшифровываем полученное от клиента сообщение
+
+                        sql.writeEvent(message, length);
                         if (!ec)
                         {
                             message[length]=0;
-                            // cout << "strcmp: " << strcmp(message,"send") << " size " << strlen(message)<< endl;
                             if(strcmp(message,"poll")==0){
                                 cout << "send" << endl;
                                 do_write(length);
                             }else if(strcmp(message,"regme")){
-                                
+
                             }else{
                                 cout << "default" << endl;
                             }
@@ -60,9 +89,7 @@ class session
         {
             auto self(shared_from_this());
             
-//            cout << data_ << endl;
 
-            
             std::ifstream myfile;
             myfile.open ("example.txt");
             myfile.seekg(0, myfile.end);
@@ -73,9 +100,7 @@ class session
             int countread = lengthfile%1024;
             myfile.read(data_, countread);
 
-            char* S = new char[256];
-            char K[]= {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-            RC4P<sizeof(K)> r(S, K);
+            
             r.calculate(data_, countread );
 
             int* cc=&lengthfile;
@@ -149,11 +174,43 @@ int main(int argc, char* argv[])
             return 1;
         }
 
+        // sqlite3 *db;
+        // char *zErrMsg = 0;
+        // int rc;
+
+        // rc = sqlite3_open_v2("mybase", &db,  SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
+        // if( rc ){
+        //   cout << "Can't open database: " << sqlite3_errmsg(db) << endl;
+        //   sqlite3_close(db);
+        //   return(1);
+        // }
+
+
+       
+        // std::vector<string> vRequest {R"(
+        //             CREATE TABLE IF NOT EXISTS COMPANY(
+        //                ID INTEGER PRIMARY KEY   AUTOINCREMENT,
+        //                TIME             text,
+        //                EVENTS           CHAR(50)
+        //             );)", 
+        //             R"( INSERT INTO COMPANY (TIME, EVENTS)
+        //                 VALUES (DATETIME('now','localtime'),'start server');)"};
+
+
+        // for (auto i: vRequest) {
+        //     rc = sqlite3_exec(db, i.c_str(), 0, 0, &zErrMsg);
+        //     if( rc!=SQLITE_OK ){
+        //       cout << "Can't open database: " << zErrMsg << endl;
+        //       sqlite3_free(zErrMsg);
+        //     }
+        // }
+
         boost::asio::io_service io_service;
 
         server s(io_service, std::atoi(argv[1]));
-        sleep(1);
         io_service.run();
+        // 
+        cout << "exit" << endl;
     }
     catch (std::exception& e)
     {

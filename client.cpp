@@ -18,8 +18,9 @@ using std::string;
 using namespace marusa;
 
 enum { max_length = 1024 };
-
 char K[] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+
+
 
 class Client{
 public:
@@ -28,7 +29,9 @@ public:
                     resolver(new tcp::resolver(io_service)){
 
         std::cout << "argv[]: " << argv[1]<< " " <<argv[2] << std::endl;
-        boost::asio::connect(*socket, resolver->resolve({argv[1], argv[2]}));  
+        boost::system::error_code e;
+        boost::asio::connect(*socket, resolver->resolve({argv[1], argv[2]}),NULL,&e);  
+        cout << "error code: " << e  << endl;
         
         criptRC4P=new RC4P<sizeof(K)>(S, K);      
     }
@@ -42,6 +45,7 @@ public:
     void sh();
     void file_poll(char* filename);
     void file_push(char* filename);
+    void write_rc4plus(char* message,int sizemessage);
 private:
     boost::asio::io_service io_service;
     tcp::socket *socket;
@@ -63,7 +67,7 @@ void Client::read(char* buffer, size_t buffer_length){
     socket->read_some( boost::asio::buffer(buffer, buffer_length));
 };
 
-void Client::sh(){
+void Client::sh(){  /* подобие командной строки */
     std::cout << "user@server: ";        
     std::getline(std::cin,command);        
     if(command.size()>80){       
@@ -83,22 +87,21 @@ void Client::sh(){
         int firstsize = temp.find(' ',1)+2;
         int sizetemp  = temp.size()-firstsize;
         if(sizetemp<50){
-            // cout << temp.substr(firstsize, sizetemp-1) << endl;
-            if(temp.find("poll")!=std::string::npos){
-               cout << "send0" << endl;
 
+            if(temp.find("poll")!=std::string::npos){
                char sendmess[] = "poll";
-               boost::asio::write(*socket, boost::asio::buffer(sendmess, sizeof(sendmess)));
+               // boost::asio::write(*socket, boost::asio::buffer(sendmess, sizeof(sendmess)));
+               write_rc4plus(sendmess, sizeof(sendmess));
 
                char filename[50];
                strcpy(filename,temp.substr(firstsize, sizetemp-1).c_str());
                file_poll(filename);
-               cout << "send1" << endl;
                
-            }else if(strcmp(request,"push")==0){
-                  
+            }else if(temp.find("push")!=std::string::npos){
+                char sendmess[] = "push";
+                write_rc4plus(sendmess, sizeof(sendmess));  
             
-            }else if(strcmp(request,"regme")==0){
+            }else if(temp.find("regme")!=std::string::npos){
                   
             }else{
                cout << "default" << endl;
@@ -137,6 +140,10 @@ void Client::sh(){
     // }           
         
 };
+void Client::write_rc4plus(char* message,int sizemessage){
+    criptRC4P->calculate(message, sizemessage);
+    boost::asio::write(*socket, boost::asio::buffer(message, sizemessage));
+}
 
 void Client::file_poll(char* filename){
     int hsize=0;
@@ -161,6 +168,7 @@ void Client::file_poll(char* filename){
     myfile.close();
     std::cout << "Получен файл. Размер: " << hsize << std::endl;
 }
+
 
 int main(int argc, char* argv[])
 {
