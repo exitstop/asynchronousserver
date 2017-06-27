@@ -27,16 +27,6 @@ RC4P<sizeof(K)> r(S, K);
 
 myprosql::SQL sql;
 
-// static int callback(void *NotUsed, int argc, char **argv, char **azColName){
-//   int i;
-//   for(i=0; i<argc; i++){
-//     cout << azColName[i] << " = " << (argv[i] ? argv[i] : "NULL" ) << endl;
-//   }
-//   printf("\n");
-//   return 0;
-// }
-
-
 
 
 class session
@@ -177,36 +167,6 @@ int main(int argc, char* argv[])
             return 1;
         }
 
-        // sqlite3 *db;
-        // char *zErrMsg = 0;
-        // int rc;
-
-        // rc = sqlite3_open_v2("mybase", &db,  SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
-        // if( rc ){
-        //   cout << "Can't open database: " << sqlite3_errmsg(db) << endl;
-        //   sqlite3_close(db);
-        //   return(1);
-        // }
-
-
-       
-        // std::vector<string> vRequest {R"(
-        //             CREATE TABLE IF NOT EXISTS COMPANY(
-        //                ID INTEGER PRIMARY KEY   AUTOINCREMENT,
-        //                TIME             text,
-        //                EVENTS           CHAR(50)
-        //             );)", 
-        //             R"( INSERT INTO COMPANY (TIME, EVENTS)
-        //                 VALUES (DATETIME('now','localtime'),'start server');)"};
-
-
-        // for (auto i: vRequest) {
-        //     rc = sqlite3_exec(db, i.c_str(), 0, 0, &zErrMsg);
-        //     if( rc!=SQLITE_OK ){
-        //       cout << "Can't open database: " << zErrMsg << endl;
-        //       sqlite3_free(zErrMsg);
-        //     }
-        // }
 
         boost::asio::io_service io_service;
 
