@@ -62,7 +62,7 @@ public:
 
     	reqSorces.insert(86,oldChars,newLen);
 
-    	cout << "sql: " << reqSorces << endl;
+    	// cout << "sql: " << reqSorces << endl;
 
     	rc = sqlite3_exec(db, reqSorces.c_str(), 0, 0, &zErrMsg);
     	if( rc!=SQLITE_OK ){

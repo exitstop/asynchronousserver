@@ -63,7 +63,7 @@ class session
                     [this, self](boost::system::error_code ec, std::size_t length)
                     {
                         
-                        
+
                         r.calculate(message, length);   //Расшифровываем полученное от клиента сообщение
 
                         sql.writeEvent(message, length);
@@ -73,8 +73,11 @@ class session
                             if(strcmp(message,"poll")==0){
                                 cout << "send" << endl;
                                 do_write(length);
-                            }else if(strcmp(message,"regme")){
+                            }else if(strcmp(message,"regme")==0){
 
+                            }else if(strcmp(message,"hello")==0){
+                                socket_.write_some(boost::asio::buffer("hi",sizeof("hi")));
+                                cout << "send" << endl;
                             }else{
                                 cout << "default" << endl;
                             }

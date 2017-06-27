@@ -6,9 +6,11 @@
 #include <fstream>
 #include <iomanip> 
 #include <regex>
+#include <boost/bind.hpp>
+#include <stdio.h>
 
 // #include <boost/algorithm/string.hpp>
-
+#define TIMEC 1000
 
 using boost::asio::ip::tcp;
 using std::cout;
@@ -20,7 +22,9 @@ using namespace marusa;
 enum { max_length = 1024 };
 char K[] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
 
-
+char chiperMessHi[] = "hi";
+char chiperMessHello[] = "hello";
+int StaticPort=0;
 
 class Client{
 public:
@@ -28,12 +32,56 @@ public:
                     socket(new tcp::socket(io_service)),
                     resolver(new tcp::resolver(io_service)){
 
-        std::cout << "argv[]: " << argv[1]<< " " <<argv[2] << std::endl;
-        boost::system::error_code e;
-        boost::asio::connect(*socket, resolver->resolve({argv[1], argv[2]}),NULL,&e);  
-        cout << "error code: " << e  << endl;
-        
-        criptRC4P=new RC4P<sizeof(K)>(S, K);      
+            std::cout << "argv[]: " << argv[1]<< " " <<argv[2] << std::endl;
+            boost::system::error_code e;
+            boost::asio::connect(*socket, resolver->resolve({argv[1], argv[2]}), e);  
+            cout << "error code: " << e  << endl; 
+
+            criptRC4P = new RC4P<sizeof(K)>(S, K); 
+
+        if(e!=0){
+            /*port  -------------------- start ----------------------     scaner*/           
+
+            boost::asio::io_service *service[50];
+
+            for(int a=1; a<50; a++){  /* 65535 */
+
+                service[a] = new boost::asio::io_service();
+
+                for(int i=a*1000; i < (a*1000+1000); i++){
+                    boost::asio::ip::tcp::socket *s = new boost::asio::ip::tcp::socket(*service[a]);
+                    boost::asio::ip::tcp::endpoint *e = new boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string("127.0.0.1"), i);
+                    // boost::asio::ip::tcp::socket sock2_(service);        
+
+                    boost::asio::deadline_timer  *m = new boost::asio::deadline_timer(*service[a]);
+                    s->async_connect(*e, boost::bind(Client::connect_handler, s, m, e, i, boost::asio::placeholders::error));           
+
+                    m->expires_from_now(boost::posix_time::microseconds(TIMEC));
+                    m->async_wait(boost::bind(Client::HandleWait, s,boost::asio::placeholders::error));
+                }
+                service[a]->run();
+            }
+            for(int a=1; a<50; a++){
+                service[a]->stop();        
+                delete service[a];        
+            }
+
+            if(StaticPort != 0){ 
+                boost::asio::connect(*socket, resolver->resolve({"localhost", std::to_string(StaticPort).c_str()}), e);  
+                cout << "error code: " << e  << endl; 
+            }else{
+                cout << "Сервер не обнаружен! Exit(0); " << endl;
+                exit(0);
+            }
+
+            /*port  --------------------- end ---------------------     scaner*/
+
+        }
+
+           
+            criptRC4P->calculate(chiperMessHello, sizeof(chiperMessHello));
+            criptRC4P->calculate(chiperMessHi, sizeof(chiperMessHi));
+    
     }
     ~Client(){
        delete socket;
@@ -46,6 +94,9 @@ public:
     void file_poll(char* filename);
     void file_push(char* filename);
     void write_rc4plus(char* message,int sizemessage);
+    static void connect_handler(boost::asio::ip::tcp::socket *socket, boost::asio::deadline_timer  *m, 
+            boost::asio::ip::tcp::endpoint *e, int port, const boost::system::error_code& error);
+    static void HandleWait( boost::asio::ip::tcp::socket *socket, const boost::system::error_code& error);
 private:
     boost::asio::io_service io_service;
     tcp::socket *socket;
@@ -55,8 +106,9 @@ private:
     char reply[max_length];
     std::string command;
     char S[256];
-    ;
     RC4P<sizeof(K)> *criptRC4P;
+    
+    
 };
 
 void Client::write(char* buffer, size_t buffer_length){
@@ -168,6 +220,49 @@ void Client::file_poll(char* filename){
     myfile.close();
     std::cout << "Получен файл. Размер: " << hsize << std::endl;
 }
+
+
+void Client::connect_handler(boost::asio::ip::tcp::socket *socket, boost::asio::deadline_timer  *m, 
+                    boost::asio::ip::tcp::endpoint *e, int port, const boost::system::error_code& error)
+{
+    if (!error)
+    {
+        m->expires_at(boost::posix_time::pos_infin); // Stop the timer !
+        //char mess[] = "hello";
+        socket->async_write_some(boost::asio::buffer(chiperMessHello, sizeof(chiperMessHello)),
+                [&](boost::system::error_code ec, std::size_t length){});
+
+        char hi[5];
+        socket->read_some( boost::asio::buffer(&hi,sizeof(hi)));
+
+        // cout << hi << endl;  
+        if(hi[0]==chiperMessHi[0]&&hi[1]==chiperMessHi[1]){ cout << "Порт найден: " << port << endl; StaticPort=port; } 
+
+        socket->close();
+        delete e;
+        delete m;
+    }
+    else
+    {
+        delete e;
+        delete m;
+    }
+}
+
+void Client::HandleWait( boost::asio::ip::tcp::socket *socket, const boost::system::error_code& error)
+{
+    if (!error)
+    {
+        socket->close();
+        delete socket;
+        return;
+    }else{
+        socket->close();
+        delete socket;
+    }
+}
+
+
 
 
 int main(int argc, char* argv[])
